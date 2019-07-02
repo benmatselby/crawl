@@ -1,0 +1,14 @@
+language: go
+go:
+  - 1.x
+notifications:
+  email: true
+env:
+  - GO111MODULE=on
+script:
+  - make vet
+  - make lint
+  - make build
+  - make test
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestRunCanParseFlags(t *testing.T) {
+func TestWeCanParseFlags(t *testing.T) {
 	tt := []struct {
 		name     string
 		args     []string
@@ -23,7 +23,12 @@ func TestRunCanParseFlags(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			err := Run(tc.args)
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, "")
+			}))
+			defer ts.Close()
+
+			_, err := Run(tc.args)
 			if tc.expected == nil && err != nil {
 				t.Fatalf("did not expect error, got %v", err)
 			}
@@ -84,6 +89,27 @@ func TestCrawlPage(t *testing.T) {
 			</html>`,
 			expected: []string{"http://GOOD_URL/blog"},
 		},
+		{
+			name: "failure to parse an attribute",
+			URL:  "/failure",
+			response: `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<meta http-equiv="X-UA-Compatible" content="ie=edge">
+				<title>Document</title>
+			</head>
+			<body>
+			<p>A paragraph</p>
+			<a href="$(0x7f)http://GOOD_URL/blog">a link</a>
+			<a hr_ef="$(0x7f)http://GOOD_URL/blog">a link</a>
+			<a href="https://twitter.com/">a link</a>
+			<a href="https://github.com/">a link</a>
+			</body>
+			</html>`,
+			expected: []string{""},
+		},
 	}
 
 	for _, tc := range tt {
@@ -99,7 +125,7 @@ func TestCrawlPage(t *testing.T) {
 				t.Fatalf("was not expected error, got '%s'", err)
 			}
 
-			urls, err := CrawlPage(URL)
+			sitemap, err := Run([]string{URL.String()})
 			if err != nil {
 				t.Fatalf("was not expected error, got '%s'", err)
 			}
@@ -114,8 +140,8 @@ func TestCrawlPage(t *testing.T) {
 				expected = append(expected, re.ReplaceAllString(url, testServerURL.Host))
 			}
 
-			if fmt.Sprintf("%s", urls) != fmt.Sprintf("%s", expected) {
-				t.Fatalf("expected '%s', got '%s'", tc.expected, urls)
+			if fmt.Sprintf("%s", sitemap.Pages[0].Links) != fmt.Sprintf("%s", expected) {
+				t.Fatalf("expected '%s', got '%s'", tc.expected, sitemap.Pages[0].Links)
 			}
 		})
 	}

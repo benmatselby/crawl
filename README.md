@@ -31,6 +31,7 @@ You can also install into your `$GOPATH/bin` by `go install`
 
 - [ ] Define site map writers using the strategy pattern (e.g. have an xml, json writer).
 - [ ] Have throttling in the system.
-- [ ] Observe the `robots.txt`
+- [ ] Observe the `robots.txt`.
 - [ ] Provide a mechanism to highlight broken links.
-- [ ] Provide a mechanism to run for assets like JavaScript, CSS etc
+- [ ] Provide a mechanism to run for assets like JavaScript, CSS etc.
+- [ ] Cater for a site that may use relative paths such as "/" so the URL works on any domain.

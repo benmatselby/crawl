@@ -6,6 +6,7 @@ notifications:
 env:
   - GO111MODULE=on
 script:
+  - go get -u golang.org/x/lint/golint
   - make vet
   - make lint
   - make build

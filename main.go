@@ -31,7 +31,7 @@ func (l Logger) Write(data []byte) (n int, err error) {
 // Page houses information about the page
 type Page struct {
 	URL   string
-	Links []string
+	Links map[string]int
 }
 
 // SiteMap details what the JSON will look like
@@ -113,22 +113,22 @@ func CrawlPage(pageURL string, w io.Writer) {
 	page.Links = urls
 	sitemap.Pages = append(sitemap.Pages, page)
 
-	for _, url := range urls {
+	for url := range urls {
 		go func(url string) {
 			CrawlPage(url, w)
 			done <- true
 		}(url)
 	}
 
-	for index, url := range urls {
-		fmt.Fprintf(w, "waiting %v - %s\n", index, url)
+	for url := range urls {
+		fmt.Fprintf(w, "waiting %s\n", url)
 		<-done
 	}
 }
 
 // GetURLs is responsible for parsing the HTML document, and returning usable URLs
-func GetURLs(currentURL *url.URL, body io.ReadCloser) []string {
-	var urls []string
+func GetURLs(currentURL *url.URL, body io.ReadCloser) map[string]int {
+	var urls = map[string]int{}
 	tokenizer := html.NewTokenizer(body)
 	for {
 		tokenType := tokenizer.Next()
@@ -144,9 +144,8 @@ func GetURLs(currentURL *url.URL, body io.ReadCloser) []string {
 
 						visited.Lock()
 						if foundURL.Host == currentURL.Host {
-							urls = append(urls, foundURL.String())
+							urls[foundURL.String()] = urls[foundURL.String()] + 1
 						}
-
 						visited.Unlock()
 					}
 				}

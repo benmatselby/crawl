@@ -122,11 +122,11 @@ func TestCrawlPage(t *testing.T) {
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/single-url",
-						Links: []string{"http://GOOD_URL/blog"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 					Page{
 						URL:   "http://GOOD_URL/blog",
-						Links: []string{"http://GOOD_URL/blog"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 				},
 			},
@@ -153,11 +153,11 @@ func TestCrawlPage(t *testing.T) {
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/single-url-with-other-urls",
-						Links: []string{"http://GOOD_URL/blog"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 					Page{
 						URL:   "http://GOOD_URL/blog",
-						Links: []string{"http://GOOD_URL/blog"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 				},
 			},
@@ -183,15 +183,45 @@ func TestCrawlPage(t *testing.T) {
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/multiple-urls",
-						Links: []string{"http://GOOD_URL/blog", "http://GOOD_URL/about-us"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1, "http://GOOD_URL/about-us": 1},
 					},
 					Page{
 						URL:   "http://GOOD_URL/blog",
-						Links: []string{"http://GOOD_URL/blog", "http://GOOD_URL/about-us"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1, "http://GOOD_URL/about-us": 1},
 					},
 					Page{
 						URL:   "http://GOOD_URL/about-us",
-						Links: []string{"http://GOOD_URL/blog", "http://GOOD_URL/about-us"},
+						Links: map[string]int{"http://GOOD_URL/blog": 1, "http://GOOD_URL/about-us": 1},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple of the same url",
+			URL:  "/multiple-of-same-url",
+			response: `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<meta http-equiv="X-UA-Compatible" content="ie=edge">
+				<title>Document</title>
+			</head>
+			<body>
+			<p>A paragraph</p>
+		  <a href="http://GOOD_URL/blog">a link</a>
+		  <a href="http://GOOD_URL/blog">a link</a>
+			</body>
+			</html>`,
+			expected: SiteMap{
+				Pages: []Page{
+					Page{
+						URL:   "http://GOOD_URL/multiple-of-same-url",
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
+					},
+					Page{
+						URL:   "http://GOOD_URL/blog",
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 				},
 			},
@@ -215,7 +245,7 @@ func TestCrawlPage(t *testing.T) {
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/no-urls",
-						Links: []string{},
+						Links: map[string]int{},
 					},
 				},
 			},
@@ -264,11 +294,14 @@ func TestCrawlPage(t *testing.T) {
 					if expectedURL == p.URL {
 						foundPage = true
 
-						for _, expectedLink := range expectedPage.Links {
+						if len(expectedPage.Links) != len(p.Links) {
+							t.Fatalf("expected page %s to have %v links, got %v", expectedPage.URL, len(expectedPage.Links), len(p.Links))
+						}
 
+						for expectedLink := range expectedPage.Links {
 							expectedLink := re.ReplaceAllString(expectedLink, testServerURL.Host)
 							foundLink := false
-							for _, l := range p.Links {
+							for l := range p.Links {
 								if expectedLink == l {
 									foundLink = true
 								}

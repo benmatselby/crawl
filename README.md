@@ -18,7 +18,7 @@ crawl https://bbc.co.uk
 
 ## Installation via Git
 
-```bash
+```shell
 git clone git@github.com:benmatselby/crawl.git
 cd crawl
 make all
@@ -26,6 +26,17 @@ make all
 ```
 
 You can also install into your `$GOPATH/bin` by `go install`
+
+## Installation via Docker
+
+Whilst this is not the recommended way to run the application, as there is a slight performance overhead in running it in a container, you can do so.
+
+```shell
+git clone git@github.com:benmatselby/crawl.git
+cd crawl
+make build-docker
+docker run benmatselby/crawl
+```
 
 ## Future
 

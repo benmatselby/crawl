@@ -4,12 +4,29 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 
 	"golang.org/x/net/html"
 )
+
+// Logger will allow us to use a --verbose flag
+type Logger struct {
+	Verbose bool
+	Writer  io.Writer
+}
+
+// Write checks to see if we want verbosity and handles the log accordingly
+func (l Logger) Write(data []byte) (n int, err error) {
+	if l.Verbose {
+		return fmt.Fprint(l.Writer, string(data))
+	}
+
+	return 0, nil
+}
 
 // Page houses information about the page
 type Page struct {
@@ -22,77 +39,115 @@ type SiteMap struct {
 	Pages []Page `json:"pages"`
 }
 
+// visited stores the urls we have crawled
+var visited = struct {
+	urls map[string]bool
+	sync.Mutex
+}{urls: make(map[string]bool)}
+
+// sitemap keeps a record
+var sitemap = SiteMap{}
+
 // main is the entry point to the application
 func main() {
+	var verbosity bool
+	flag.BoolVar(&verbosity, "verbose", false, "whether we want to output all the crawling information")
 	flag.Parse()
-	sitemap, err := Run(flag.Args())
+
+	l := Logger{Verbose: verbosity, Writer: os.Stdout}
+	err := Run(flag.Args(), l)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	json, err := json.Marshal(sitemap)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
 	fmt.Println(string(json))
 }
 
 // Run is the main execution of the application
-func Run(args []string) (*SiteMap, error) {
+func Run(args []string, w io.Writer) error {
 	if len(args) < 1 {
-		return nil, fmt.Errorf("no URL specified")
+		return fmt.Errorf("no URL specified")
 	}
 
 	target, err := url.ParseRequestURI(args[0])
 	if err != nil {
-		return nil, fmt.Errorf("invalid URL")
+		return fmt.Errorf("invalid URL")
 	}
+	CrawlPage(target.String(), w)
 
-	var pages []Page
-
-	found, err := CrawlPage(target)
-	if err != nil {
-		// @todo
-	}
-
-	pages = append(pages, Page{URL: target.String(), Links: found})
-	sitemap := &SiteMap{
-		Pages: pages,
-	}
-
-	return sitemap, nil
+	return nil
 }
 
-// CrawlPage will scan a single page and return the URLs it finds if they match the target
-func CrawlPage(URL *url.URL) ([]string, error) {
-	response, err := http.Get(URL.String())
-	if err != nil {
-		return nil, err
+// CrawlPage will scan a single page and then generate more go routines to carry on down the rabbit hole
+func CrawlPage(pageURL string, w io.Writer) {
+	fmt.Fprintf(w, "fetching %s\n", pageURL)
+
+	page := Page{
+		URL: pageURL,
 	}
 
+	response, err := http.Get(pageURL)
+	if err != nil {
+		fmt.Fprintf(w, "error fetching url %s: %s", pageURL, err)
+	}
+
+	visited.Lock()
+	if visited.urls[pageURL] == true {
+		fmt.Fprintf(w, "already crawled %s\n", pageURL)
+		visited.Unlock()
+		return
+	}
+	visited.urls[pageURL] = true
+	visited.Unlock()
+
+	done := make(chan bool)
+
+	targetURL, err := url.ParseRequestURI(pageURL)
+	if err != nil {
+		fmt.Fprintf(w, "error parsing URL %s: %s", pageURL, err)
+	}
+
+	urls := GetURLs(targetURL, response.Body)
+	page.Links = urls
+	sitemap.Pages = append(sitemap.Pages, page)
+
+	for _, url := range urls {
+		go func(url string) {
+			CrawlPage(url, w)
+			done <- true
+		}(url)
+	}
+
+	for index, url := range urls {
+		fmt.Fprintf(w, "waiting %v - %s\n", index, url)
+		<-done
+	}
+}
+
+// GetURLs is responsible for parsing the HTML document, and returning usable URLs
+func GetURLs(currentURL *url.URL, body io.ReadCloser) []string {
 	var urls []string
-	tokenizer := html.NewTokenizer(response.Body)
+	tokenizer := html.NewTokenizer(body)
 	for {
 		tokenType := tokenizer.Next()
 		token := tokenizer.Token()
 		switch tokenType {
 		case html.ErrorToken:
-			return urls, nil
+			return urls
 		case html.StartTagToken:
 			if token.DataAtom.String() == "a" {
 				for _, value := range token.Attr {
 					if value.Key == "href" {
-						pageURL, err := url.Parse(value.Val)
-						if err != nil {
-							continue
+						foundURL, _ := url.Parse(value.Val)
+
+						visited.Lock()
+						if foundURL.Host == currentURL.Host {
+							urls = append(urls, foundURL.String())
 						}
 
-						if pageURL.Host == URL.Host {
-							urls = append(urls, pageURL.String())
-						}
+						visited.Unlock()
 					}
 				}
 			}

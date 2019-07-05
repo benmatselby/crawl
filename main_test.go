@@ -12,6 +12,37 @@ import (
 	"testing"
 )
 
+func TestLogger(t *testing.T) {
+	tt := []struct {
+		name      string
+		verbosity bool
+		msg       string
+		expected  string
+	}{
+		{name: "verbose mode", verbosity: true, msg: "My logged string", expected: "My logged string"},
+		{name: "verbose mode off", verbosity: false, msg: "My logged string", expected: ""},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			var b bytes.Buffer
+			writer := bufio.NewWriter(&b)
+
+			logger := Logger{
+				Verbose: tc.verbosity,
+				Writer:  writer,
+			}
+
+			fmt.Fprintf(logger, tc.msg)
+			writer.Flush()
+
+			if b.String() != tc.expected {
+				t.Fatalf("expected '%s'; got '%s'", tc.expected, b.String())
+			}
+		})
+	}
+}
+
 func TestRunCanParseFlags(t *testing.T) {
 	tt := []struct {
 		name     string

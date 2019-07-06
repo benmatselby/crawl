@@ -1,2 +1,6 @@
+# Output
 crawl
 coverage.out
+
+# Operation system
+.DS_Store

@@ -121,8 +121,6 @@ func CrawlPage(pageURL string, level int, w io.Writer) {
 	visited.urls[pageURL] = true
 	visited.Unlock()
 
-	done := make(chan bool)
-
 	targetURL, err := url.ParseRequestURI(pageURL)
 	if err != nil {
 		fmt.Fprintf(w, "error parsing URL %s: %s", pageURL, err)
@@ -131,6 +129,8 @@ func CrawlPage(pageURL string, level int, w io.Writer) {
 	urls := GetURLs(targetURL, response.Body)
 	page.Links = urls
 	sitemap.Pages = append(sitemap.Pages, page)
+
+	done := make(chan bool)
 
 	for url := range urls {
 		go func(url string, level int, w io.Writer) {

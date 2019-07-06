@@ -30,8 +30,9 @@ func (l Logger) Write(data []byte) (n int, err error) {
 
 // Page houses information about the page
 type Page struct {
-	URL   string
-	Links map[string]int
+	URL       string
+	HasErrors bool
+	Links     map[string]int
 }
 
 // SiteMap details what the JSON will look like
@@ -90,7 +91,9 @@ func CrawlPage(pageURL string, w io.Writer) {
 
 	response, err := http.Get(pageURL)
 	if err != nil {
+		page.HasErrors = true
 		fmt.Fprintf(w, "error fetching url %s: %s", pageURL, err)
+		return
 	}
 
 	visited.Lock()
@@ -140,8 +143,10 @@ func GetURLs(currentURL *url.URL, body io.ReadCloser) map[string]int {
 			if token.DataAtom.String() == "a" {
 				for _, value := range token.Attr {
 					if value.Key == "href" {
-						foundURL, _ := url.Parse(value.Val)
-
+						foundURL, err := url.Parse(value.Val)
+						if err != nil {
+							continue
+						}
 						visited.Lock()
 						if foundURL.Host == currentURL.Host {
 							urls[foundURL.String()] = urls[foundURL.String()] + 1

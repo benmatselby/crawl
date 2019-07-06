@@ -13,13 +13,13 @@ import (
 	"golang.org/x/net/html"
 )
 
-// Logger will allow us to use a --verbose flag
+// Logger will allow us to use a --verbose flag.
 type Logger struct {
 	Verbose bool
 	Writer  io.Writer
 }
 
-// Write checks to see if we want verbosity and handles the log accordingly
+// Write checks to see if we want verbosity and handles the log accordingly.
 func (l Logger) Write(data []byte) (n int, err error) {
 	if l.Verbose {
 		return fmt.Fprint(l.Writer, string(data))
@@ -28,33 +28,35 @@ func (l Logger) Write(data []byte) (n int, err error) {
 	return 0, nil
 }
 
-// Page houses information about the page
+// Page houses information about the page.
 type Page struct {
 	URL       string
 	HasErrors bool
 	Links     map[string]int
 }
 
-// SiteMap details what the JSON will look like
+// SiteMap details the overall structure for the output from the crawl.
 type SiteMap struct {
-	Pages   []Page `json:"pages"`
+	Pages   []Page
 	Depth   int
 	WasMore bool
 }
 
-// visited stores the urls we have crawled
+// visited stores the urls we have crawled, so we do not re-crawl.
+// The sync.Mutex is there as we are running concurrently, we need to make sure
+// only one routine at a time can access/modified the url map.
 var visited = struct {
 	urls map[string]bool
 	sync.Mutex
 }{urls: make(map[string]bool)}
 
-// sitemap keeps a record
+// sitemap keeps a record for a single crawl.
 var sitemap = SiteMap{}
 
-// desiredDepth determines how deep into the crawl we go before we stop
+// desiredDepth determines how deep into the crawl we go before we stop.
 var desiredDepth int
 
-// main is the entry point to the application
+// main is the entry point to the application.
 func main() {
 	var verbosity bool
 	flag.BoolVar(&verbosity, "verbose", false, "whether we want to output all the crawling information")
@@ -73,7 +75,7 @@ func main() {
 	fmt.Println(string(json))
 }
 
-// Run is the main execution of the application
+// Run is the main execution of the application.
 func Run(args []string, w io.Writer) error {
 	if len(args) < 1 {
 		return fmt.Errorf("no URL specified")
@@ -90,7 +92,7 @@ func Run(args []string, w io.Writer) error {
 	return nil
 }
 
-// CrawlPage will scan a single page and then generate more go routines to carry on down the rabbit hole
+// CrawlPage will scan a single page and then generate more go routines to carry on down the rabbit hole.
 func CrawlPage(pageURL string, level int, w io.Writer) {
 	if level > desiredDepth {
 		fmt.Fprintf(w, "not fetching %s as we are at depth of %v\n", pageURL, level)
@@ -143,7 +145,7 @@ func CrawlPage(pageURL string, level int, w io.Writer) {
 	}
 }
 
-// GetURLs is responsible for parsing the HTML document, and returning usable URLs
+// GetURLs is responsible for parsing the HTML document, and returning usable URLs.
 func GetURLs(currentURL *url.URL, body io.ReadCloser) map[string]int {
 	var urls = map[string]int{}
 	tokenizer := html.NewTokenizer(body)

@@ -4,12 +4,49 @@
 [![codecov](https://codecov.io/gh/benmatselby/crawl/branch/master/graph/badge.svg)](https://codecov.io/gh/benmatselby/crawl)
 [![Go Report Card](https://goreportcard.com/badge/github.com/benmatselby/crawl)](https://goreportcard.com/report/github.com/benmatselby/crawl)
 
-The aim of this project was to write a simple web crawler. The crawler should be limited to one domain - so when you start with [https://bbc.co.uk/](https://bbc.co.uk/), it would crawl all pages within [bbc.co.uk](https://bbc.co.uk/), but not follow external links, for example to the Facebook and Twitter accounts. Given a URL, it should print a simple site map, showing the links between pages.
+The aim of this project was to write a simple web crawler. The crawler should be limited to one domain - so when you start with [https://benmatselby.dev/](https://benmatselby.dev/), it would crawl all pages within [benmatselby.dev](https://benmatselby.dev/), but not follow external links, for example to the Facebook and Twitter accounts. Given a URL, it should print a simple site map, showing the links between pages.
 
 ## Usage
 
-```text
-crawl https://bbc.co.uk
+```shell
+Usage of crawl:
+  -depth int
+      how deep into the crawl before we stop (default 2)
+  -verbose
+      whether we want to output all the crawling information
+
+crawl https://benmatselby.dev
+```
+
+This will return a JSON string for the output. You can then pipe that into something like [jq](https://stedolan.github.io/jq/) to get some nice formatting, or interrogation options:
+
+**URLs crawled**:
+
+```shell
+./crawl https://benmatselby.dev | jq '.pages[].URL'
+"https://benmatselby.dev"
+"https://benmatselby.dev/"
+"https://benmatselby.dev/post/sugarcrm-deployment-process/"
+"https://benmatselby.dev/post/"
+"https://benmatselby.dev/post/joining-a-new-engineering-team/"
+"https://benmatselby.dev/post/software-engineering-team-structure/"
+"https://benmatselby.dev/post/pa11y-accessibility-ci/"
+"https://benmatselby.dev/post/development-environments/"
+"https://benmatselby.dev/post/pipelines/"
+"https://benmatselby.dev/post/communication/"
+"https://benmatselby.dev/post/feature-toggling/"
+"https://benmatselby.dev/post/onboarding/"
+"https://benmatselby.dev/post/technology-radar/"
+"https://benmatselby.dev/post/communication-tools/"
+"https://benmatselby.dev/post/squashing-commits/"
+"https://benmatselby.dev/post/why-teams-important/"
+```
+
+**Count of URLs crawled**:
+
+```shell
+./crawl https://benmatselby.dev | jq '.pages | length'
+16
 ```
 
 ## Requirements
@@ -18,6 +55,8 @@ crawl https://bbc.co.uk
 
 ## Installation via Git
 
+The main way to install this application, is to clone the git repo, and build. This will require you to have the Go runtime installed on your machine.
+
 ```shell
 git clone git@github.com:benmatselby/crawl.git
 cd crawl
@@ -25,7 +64,7 @@ make all
 ./crawl
 ```
 
-You can also install into your `$GOPATH/bin` by `go install`
+Once built, you can also install the binary into your `$GOPATH/bin` by `go install`. This will mean that `crawl` will be globally available in your system.
 
 ## Installation via Docker
 
@@ -35,7 +74,7 @@ Whilst this is not the recommended way to run the application, as there is a sli
 git clone git@github.com:benmatselby/crawl.git
 cd crawl
 make build-docker
-docker run benmatselby/crawl
+docker run benmatselby/crawl https://benmatselby.dev
 ```
 
 ## Future

@@ -37,7 +37,9 @@ type Page struct {
 
 // SiteMap details what the JSON will look like
 type SiteMap struct {
-	Pages []Page `json:"pages"`
+	Pages   []Page `json:"pages"`
+	Depth   int
+	WasMore bool
 }
 
 // visited stores the urls we have crawled
@@ -49,10 +51,14 @@ var visited = struct {
 // sitemap keeps a record
 var sitemap = SiteMap{}
 
+// desiredDepth determines how deep into the crawl we go before we stop
+var desiredDepth int
+
 // main is the entry point to the application
 func main() {
 	var verbosity bool
 	flag.BoolVar(&verbosity, "verbose", false, "whether we want to output all the crawling information")
+	flag.IntVar(&desiredDepth, "depth", 2, "how deep into the crawl before we stop")
 	flag.Parse()
 
 	l := Logger{Verbose: verbosity, Writer: os.Stdout}
@@ -72,17 +78,24 @@ func Run(args []string, w io.Writer) error {
 		return fmt.Errorf("no URL specified")
 	}
 
+	sitemap.Depth = desiredDepth
+
 	target, err := url.ParseRequestURI(args[0])
 	if err != nil {
 		return fmt.Errorf("invalid URL")
 	}
-	CrawlPage(target.String(), w)
+	CrawlPage(target.String(), 0, w)
 
 	return nil
 }
 
 // CrawlPage will scan a single page and then generate more go routines to carry on down the rabbit hole
-func CrawlPage(pageURL string, w io.Writer) {
+func CrawlPage(pageURL string, level int, w io.Writer) {
+	if level > desiredDepth {
+		fmt.Fprintf(w, "not fetching %s as we are at depth of %v\n", pageURL, level)
+		sitemap.WasMore = true
+		return
+	}
 	fmt.Fprintf(w, "fetching %s\n", pageURL)
 
 	page := Page{
@@ -117,10 +130,10 @@ func CrawlPage(pageURL string, w io.Writer) {
 	sitemap.Pages = append(sitemap.Pages, page)
 
 	for url := range urls {
-		go func(url string) {
-			CrawlPage(url, w)
+		go func(url string, level int, w io.Writer) {
+			CrawlPage(url, level, w)
 			done <- true
-		}(url)
+		}(url, level+1, w)
 	}
 
 	for url := range urls {

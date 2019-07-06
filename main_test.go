@@ -60,6 +60,7 @@ func TestRunCanParseFlags(t *testing.T) {
 			sitemap = SiteMap{}
 			visited.urls = nil
 			visited.urls = make(map[string]bool)
+			desiredDepth = 0
 
 			re := regexp.MustCompile(`GOOD_URL`)
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -97,14 +98,16 @@ func TestCrawlPage(t *testing.T) {
 	tt := []struct {
 		name     string
 		URL      string
+		depth    int
 		response string
 		goodURLs []string
 		badURLs  []string
 		expected SiteMap
 	}{
 		{
-			name: "a single URL",
-			URL:  "/single-url",
+			name:  "a single URL",
+			URL:   "/single-url",
+			depth: 10,
 			response: `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -119,6 +122,7 @@ func TestCrawlPage(t *testing.T) {
 			</body>
 			</html>`,
 			expected: SiteMap{
+				WasMore: false,
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/single-url",
@@ -132,8 +136,9 @@ func TestCrawlPage(t *testing.T) {
 			},
 		},
 		{
-			name: "a single good URL with other urls",
-			URL:  "/single-url-with-other-urls",
+			name:  "a single good URL with other urls",
+			URL:   "/single-url-with-other-urls",
+			depth: 10,
 			response: `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -150,6 +155,7 @@ func TestCrawlPage(t *testing.T) {
 			</body>
 			</html>`,
 			expected: SiteMap{
+				WasMore: false,
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/single-url-with-other-urls",
@@ -163,8 +169,9 @@ func TestCrawlPage(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple good urls, no bad urls",
-			URL:  "/multiple-urls",
+			name:  "multiple good urls, no bad urls",
+			URL:   "/multiple-urls",
+			depth: 10,
 			response: `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -180,6 +187,7 @@ func TestCrawlPage(t *testing.T) {
 			</body>
 			</html>`,
 			expected: SiteMap{
+				WasMore: false,
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/multiple-urls",
@@ -197,8 +205,9 @@ func TestCrawlPage(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple of the same url",
-			URL:  "/multiple-of-same-url",
+			name:  "multiple of the same url",
+			URL:   "/multiple-of-same-url",
+			depth: 10,
 			response: `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -214,6 +223,7 @@ func TestCrawlPage(t *testing.T) {
 			</body>
 			</html>`,
 			expected: SiteMap{
+				WasMore: false,
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/multiple-of-same-url",
@@ -227,8 +237,9 @@ func TestCrawlPage(t *testing.T) {
 			},
 		},
 		{
-			name: "no urls",
-			URL:  "/no-urls",
+			name:  "no urls",
+			URL:   "/no-urls",
+			depth: 10,
 			response: `<!DOCTYPE html>
 			<html lang="en">
 			<head>
@@ -242,10 +253,39 @@ func TestCrawlPage(t *testing.T) {
 			</body>
 			</html>`,
 			expected: SiteMap{
+				WasMore: false,
 				Pages: []Page{
 					Page{
 						URL:   "http://GOOD_URL/no-urls",
 						Links: map[string]int{},
+					},
+				},
+			},
+		},
+		{
+			name:  "more urls than we want to track",
+			URL:   "/more-urls-than-we-care-about",
+			depth: 0,
+			response: `<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<meta http-equiv="X-UA-Compatible" content="ie=edge">
+				<title>Document</title>
+			</head>
+			<body>
+			<p>A paragraph</p>
+		  <a href="http://GOOD_URL/blog">a link</a>
+		  <a href="http://GOOD_URL/blog">a link</a>
+			</body>
+			</html>`,
+			expected: SiteMap{
+				WasMore: true,
+				Pages: []Page{
+					Page{
+						URL:   "http://GOOD_URL/more-urls-than-we-care-about",
+						Links: map[string]int{"http://GOOD_URL/blog": 1},
 					},
 				},
 			},
@@ -258,6 +298,7 @@ func TestCrawlPage(t *testing.T) {
 			sitemap = SiteMap{}
 			visited.urls = nil
 			visited.urls = make(map[string]bool)
+			desiredDepth = tc.depth
 
 			re := regexp.MustCompile(`GOOD_URL`)
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +314,7 @@ func TestCrawlPage(t *testing.T) {
 			var b bytes.Buffer
 			w := bufio.NewWriter(&b)
 
-			CrawlPage(URL.String(), w)
+			CrawlPage(URL.String(), 0, w)
 			if err != nil {
 				t.Fatalf("was not expected error, got '%s'", err)
 			}
@@ -285,6 +326,10 @@ func TestCrawlPage(t *testing.T) {
 
 			if len(sitemap.Pages) != len(tc.expected.Pages) {
 				t.Fatalf("expected %v pages, got %v", len(sitemap.Pages), len(tc.expected.Pages))
+			}
+
+			if sitemap.WasMore != tc.expected.WasMore {
+				t.Fatalf("expected WasMore to be '%v', got '%v'", tc.expected.WasMore, sitemap.WasMore)
 			}
 
 			for _, expectedPage := range tc.expected.Pages {

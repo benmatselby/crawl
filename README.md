@@ -1,7 +1,6 @@
 # Crawl
 
-[![Build Status](https://travis-ci.org/benmatselby/crawl.png?branch=master)](https://travis-ci.org/benmatselby/crawl)
-[![codecov](https://codecov.io/gh/benmatselby/crawl/branch/master/graph/badge.svg)](https://codecov.io/gh/benmatselby/crawl)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=crawl&metric=alert_status)](https://sonarcloud.io/dashboard?id=crawl)
 [![Go Report Card](https://goreportcard.com/badge/github.com/benmatselby/crawl)](https://goreportcard.com/report/github.com/benmatselby/crawl)
 
 The aim of this project was to write a simple web crawler. The crawler should be limited to one domain - so when you start with [https://benmatselby.dev/](https://benmatselby.dev/), it would crawl all pages within [benmatselby.dev](https://benmatselby.dev/), but not follow external links, for example to the Facebook and Twitter accounts. Given a URL, it should print a simple site map, showing the links between pages.
